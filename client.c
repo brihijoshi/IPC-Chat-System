@@ -40,7 +40,7 @@ int main(int argc , char *argv[])
         scanf("%s" , message);
 
         //Send some data
-        if( send(sock , message , strlen(message) , 0) < 0)
+        if( send(sock, message ,strlen(message) , 0) < 0)
         {
             puts("Send failed");
             return 1;
