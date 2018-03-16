@@ -1,62 +1,79 @@
-#include<stdio.h> //printf
-#include<string.h>    //strlen
-#include<sys/socket.h>    //socket
-#include<arpa/inet.h> //inet_addr
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <errno.h>
 
-int main(int argc , char *argv[])
+#define BUFSIZE 1024
+
+void send_recv(int i, int sockfd)
 {
-    int sock;
-    struct sockaddr_in server;
-    char message[1000] , server_reply[2000], name[100];
+    char send_buf[BUFSIZE];
+    char recv_buf[BUFSIZE];
+    int nbyte_recvd;
 
-    //Create socket
-    sock = socket(AF_INET , SOCK_STREAM , 0);
-    if (sock == -1)
-    {
-        printf("Could not create socket");
+    if (i == 0){
+        fgets(send_buf, BUFSIZE, stdin);
+        if (strcmp(send_buf , "quit\n") == 0) {
+            exit(0);
+        }else
+            send(sockfd, send_buf, strlen(send_buf), 0);
+    }else {
+        nbyte_recvd = recv(sockfd, recv_buf, BUFSIZE, 0);
+        recv_buf[nbyte_recvd] = '\0';
+        printf("%s\n" , recv_buf);
+        fflush(stdout);
     }
-    puts("Socket created");
+}
 
-    server.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server.sin_family = AF_INET;
-    server.sin_port = htons( 8888 );
 
-    //Connect to remote server
-    if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0){
-        perror("connect failed. Error");
-        return 1;
+void connect_request(int *sockfd, struct sockaddr_in *server_addr)
+{
+    if ((*sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+        perror("Socket");
+        exit(1);
     }
+    server_addr->sin_family = AF_INET;
+    server_addr->sin_port = htons(4950);
+    server_addr->sin_addr.s_addr = inet_addr("127.0.0.1");
+    memset(server_addr->sin_zero, '\0', sizeof server_addr->sin_zero);
 
-    puts("Connected\n");
+    if(connect(*sockfd, (struct sockaddr *)server_addr, sizeof(struct sockaddr)) == -1) {
+        perror("connect");
+        exit(1);
+    }
+}
 
-    //keep communicating with server
-		printf("Hello! What is your name?");
-		scanf("%s" , name);
-		int send_name = send(sock , name, strlen(name) , 0);
-    while(1)
-    {
+int main()
+{
+    int sockfd, fdmax, i;
+    struct sockaddr_in server_addr;
+    fd_set master;
+    fd_set read_fds;
 
-        printf("Enter message : ");
-        scanf("%s" , message);
+    connect_request(&sockfd, &server_addr);
+    FD_ZERO(&master);
+        FD_ZERO(&read_fds);
+        FD_SET(0, &master);
+        FD_SET(sockfd, &master);
+    fdmax = sockfd;
 
-        //Send some data
-        if( send(sock, message ,strlen(message) , 0) < 0)
-        {
-            puts("Send failed");
-            return 1;
+    while(1){
+        read_fds = master;
+        if(select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1){
+            perror("select");
+            exit(4);
         }
 
-        //Receive a reply from the server
-        if( recv(sock , server_reply , 2000 , 0) < 0)
-        {
-            puts("recv failed");
-            break;
-        }
-
-        puts("Server reply :");
-        puts(server_reply);
+        for(i=0; i <= fdmax; i++ )
+            if(FD_ISSET(i, &read_fds))
+                send_recv(i, sockfd);
     }
-
-    close(sock);
+    printf("client-quited\n");
+    close(sockfd);
     return 0;
 }
