@@ -13,11 +13,12 @@
 
 struct user
 {
-   char name[256];
+   char *name;
    int fd;
 };
 
 struct user user_list[1024];
+int count_users = 0;
 
 void send_to_all(int j, int i, int sockfd, int nbytes_recvd, char *recv_buf, fd_set *master)
 {
@@ -61,13 +62,26 @@ void connection_accept(fd_set *master, int *fdmax, int sockfd, struct sockaddr_i
         perror("accept");
         exit(1);
     }
-    else {
-        FD_SET(newsockfd, master);
-        if(newsockfd > *fdmax){
-            *fdmax = newsockfd;
-        }
-        printf("new connection from %s on port %d \n",inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port));
+
+    FD_SET(newsockfd, master);
+    if(newsockfd > *fdmax){
+        *fdmax = newsockfd;
     }
+    printf("new connection from %s on port %d \n",inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port));
+
+    char *name_prompt = "Select a chat username! ";
+    send(newsockfd, name_prompt, strlen(name_prompt),0);
+
+    char name[256];
+    recv(newsockfd, name, 256, 0);
+    printf("%s\n",name);
+    user_list[count_users].name = malloc(strlen(name)*sizeof(char));
+    user_list[count_users].name = name;
+    user_list[count_users].fd = newsockfd;
+    count_users++;
+    printf("Added names..."); 
+
+
 }
 
 void connect_request(int *sockfd, struct sockaddr_in *my_addr)
@@ -111,26 +125,20 @@ int main()
     int fdmax, i;
     int sockfd= 0;
     struct sockaddr_in my_addr, client_addr;
-
+    
     FD_ZERO(&master);
     FD_ZERO(&read_fds);
     connect_request(&sockfd, &my_addr);
     FD_SET(sockfd, &master);
-
+    
     fdmax = sockfd;
     while(1){
         read_fds = master;
-
-        int s = select(fdmax+1, &read_fds, NULL, NULL, 10);
-        if( s == -1){
-            error("select");
+        if(select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1){
+            perror("select");
             exit(4);
         }
-
-        else if ( s == 0){
-            error("Timeout occurred!")
-        }
-
+        
         for (i = 0; i <= fdmax; i++){
             if (FD_ISSET(i, &read_fds)){
                 if (i == sockfd)

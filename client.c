@@ -46,6 +46,13 @@ void connect_request(int *sockfd, struct sockaddr_in *server_addr)
         perror("connect");
         exit(1);
     }
+
+    char name_prompt[25];
+    recv(*sockfd, name_prompt, 25, 0);
+    printf("%s\n",name_prompt);
+    char name[256];
+    fgets(name,256,stdin);
+    send(*sockfd,name,strlen(name),0);
 }
 
 int main()
