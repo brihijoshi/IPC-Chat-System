@@ -7,9 +7,17 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-
 #define PORT 4950
 #define BUFSIZE 1024
+
+
+struct user
+{
+   char name[256];
+   int fd;
+};
+
+struct user user_list[1024];
 
 void send_to_all(int j, int i, int sockfd, int nbytes_recvd, char *recv_buf, fd_set *master)
 {
@@ -52,7 +60,8 @@ void connection_accept(fd_set *master, int *fdmax, int sockfd, struct sockaddr_i
     if((newsockfd = accept(sockfd, (struct sockaddr *)client_addr, &addrlen)) == -1) {
         perror("accept");
         exit(1);
-    }else {
+    }
+    else {
         FD_SET(newsockfd, master);
         if(newsockfd > *fdmax){
             *fdmax = newsockfd;
@@ -65,7 +74,11 @@ void connect_request(int *sockfd, struct sockaddr_in *my_addr)
 {
     int yes = 1;
 
-    if ((*sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    /*
+    AF_INET = domain of the socket, it is connected via localhost
+    */
+
+    if ((*sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("Socket");
         exit(1);
     }
@@ -107,9 +120,15 @@ int main()
     fdmax = sockfd;
     while(1){
         read_fds = master;
-        if(select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1){
-            perror("select");
+
+        int s = select(fdmax+1, &read_fds, NULL, NULL, 10);
+        if( s == -1){
+            error("select");
             exit(4);
+        }
+
+        else if ( s == 0){
+            error("Timeout occurred!")
         }
 
         for (i = 0; i <= fdmax; i++){

@@ -57,9 +57,9 @@ int main()
 
     connect_request(&sockfd, &server_addr);
     FD_ZERO(&master);
-        FD_ZERO(&read_fds);
-        FD_SET(0, &master);
-        FD_SET(sockfd, &master);
+    FD_ZERO(&read_fds);
+    FD_SET(0, &master);
+    FD_SET(sockfd, &master);
     fdmax = sockfd;
 
     while(1){
