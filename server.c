@@ -1,152 +1,172 @@
+/*
+ * CSE231: Operating Systems
+ * Assignment 2: Multi-User Chat System
+ * Brihi Joshi (2016142)
+ * Taejas Gupta (2016204)
+ * March 18, 2018
+ *
+ * Server code.
+ */
+
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#define PORT 4950
-#define BUFSIZE 1024
+
+#define BUFFER_SIZE 1024
 
 
-struct user
+
+void init_socket(int *sockfd)
 {
-   char *name;
-   int fd;
-};
-
-struct user user_list[1024];
-int count_users = 0;
-
-void send_to_all(int j, int i, int sockfd, int nbytes_recvd, char *recv_buf, fd_set *master)
-{
-    if (FD_ISSET(j, master)){
-        if (j != sockfd && j != i) {
-            if (send(j, recv_buf, nbytes_recvd, 0) == -1) {
-                perror("send");
-            }
-        }
-    }
+	if((*sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+	{
+		perror("Unable to open socket");
+		exit(1);
+	}
 }
 
-void send_recv(int i, fd_set *master, int sockfd, int fdmax)
-{
-    int nbytes_recvd, j;
-    char recv_buf[BUFSIZE], buf[BUFSIZE];
 
-    if ((nbytes_recvd = recv(i, recv_buf, BUFSIZE, 0)) <= 0) {
-        if (nbytes_recvd == 0) {
-            printf("socket %d hung up\n", i);
-        }else {
-            perror("recv");
-        }
-        close(i);
-        FD_CLR(i, master);
-    }else {
-    //  printf("%s\n", recv_buf);
-        for(j = 0; j <= fdmax; j++){
-            send_to_all(j, i, sockfd, nbytes_recvd, recv_buf, master );
-        }
-    }
+
+void bind_to_port(int sockfd, struct sockaddr_in *server_addr)
+{
+	server_addr->sin_family = AF_INET;
+	server_addr->sin_port = (in_port_t) htons(1337);
+	server_addr->sin_addr.s_addr = INADDR_ANY;
+	memset(server_addr->sin_zero, '\0', sizeof(server_addr->sin_zero));
+
+	int reuse = 1;
+	if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char *) &reuse, sizeof(int)) < 0)
+	{
+		perror("Unable to set reuse option on socket");
+		exit(1);
+	}
+
+	if(bind(sockfd, (struct sockaddr *) server_addr, sizeof(struct sockaddr)) < 0)
+	{
+		perror("Unable to bind to port");
+		exit(1);
+	}
+
+	printf("Server waiting for client on port 1337\n");
+
+	fflush(stdout);
 }
 
-void connection_accept(fd_set *master, int *fdmax, int sockfd, struct sockaddr_in *client_addr)
+
+
+void listen_to_clients(int sockfd)
 {
-    socklen_t addrlen;
-    int newsockfd;
-
-    addrlen = sizeof(struct sockaddr_in);
-    if((newsockfd = accept(sockfd, (struct sockaddr *)client_addr, &addrlen)) == -1) {
-        perror("accept");
-        exit(1);
-    }
-
-    FD_SET(newsockfd, master);
-    if(newsockfd > *fdmax){
-        *fdmax = newsockfd;
-    }
-    printf("new connection from %s on port %d \n",inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port));
-
-    char *name_prompt = "Select a chat username! ";
-    send(newsockfd, name_prompt, strlen(name_prompt),0);
-
-    char name[256];
-    recv(newsockfd, name, 256, 0);
-    printf("%s\n",name);
-    user_list[count_users].name = malloc(strlen(name)*sizeof(char));
-    user_list[count_users].name = name;
-    user_list[count_users].fd = newsockfd;
-    count_users++;
-    printf("Added names..."); 
-
-
+	if(listen(sockfd, 10) < 0)
+	{
+		perror("Unable to listen");
+		exit(1);
+	}
 }
 
-void connect_request(int *sockfd, struct sockaddr_in *my_addr)
+
+
+void accept_connection(fd_set *curr_fds, int *max_fd, int sockfd, struct sockaddr_in *client_addr)
 {
-    int yes = 1;
+	socklen_t addrlen;
+	int client_sockfd;
 
-    /*
-    AF_INET = domain of the socket, it is connected via localhost
-    */
-
-    if ((*sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("Socket");
-        exit(1);
-    }
-
-    my_addr->sin_family = AF_INET;
-    my_addr->sin_port = htons(4950);
-    my_addr->sin_addr.s_addr = INADDR_ANY;
-    memset(my_addr->sin_zero, '\0', sizeof my_addr->sin_zero);
-
-    if (setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
-        perror("setsockopt");
-        exit(1);
-    }
-
-    if (bind(*sockfd, (struct sockaddr *)my_addr, sizeof(struct sockaddr)) == -1) {
-        perror("Unable to bind");
-        exit(1);
-    }
-    if (listen(*sockfd, 10) == -1) {
-        perror("listen");
-        exit(1);
-    }
-    printf("\nTCPServer Waiting for client on port 4950\n");
-    fflush(stdout);
+	addrlen = sizeof(struct sockaddr_in);
+	if((client_sockfd = accept(sockfd, (struct sockaddr *) client_addr, &addrlen)) < 0)
+	{
+		perror("Unable to accept connection");
+		exit(1);
+	}
+	
+	FD_SET(client_sockfd, curr_fds);
+	if(client_sockfd > *max_fd)
+		*max_fd = client_sockfd;
+	printf("Client %s has connected on port %d.\n", inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port));
 }
+
+
+
+void group_message(int i, int j, int sockfd, int recv_size, char *recv_buf, fd_set *curr_fds)
+{
+	if(FD_ISSET(j, curr_fds) && j != sockfd && j != i)
+	{
+		if(send(j, recv_buf, recv_size, 0) < 0)
+			perror("Unable to send message");
+	}
+}
+
+
+
+void relay_message(int i, fd_set *curr_fds, int sockfd, int max_fd)
+{
+	int recv_size;
+	char recv_buf[BUFFER_SIZE], buf[BUFFER_SIZE];
+
+	if((recv_size = recv(i, recv_buf, BUFFER_SIZE, 0)) <= 0)
+	{
+		if(recv_size == 0)
+			printf("Connection at socket %d has been terminated.\n", i);
+		else
+			perror("Error in receiving message from client");
+		close(i);
+		FD_CLR(i, curr_fds);
+	}
+
+	else
+	{
+		int j;
+		for(j = 0; j <= max_fd; j++)
+			group_message(i, j, sockfd, recv_size, recv_buf, curr_fds);
+	}
+}
+
+
+
 int main()
 {
-    fd_set master;
-    fd_set read_fds;
-    int fdmax, i;
-    int sockfd= 0;
-    struct sockaddr_in my_addr, client_addr;
-    
-    FD_ZERO(&master);
-    FD_ZERO(&read_fds);
-    connect_request(&sockfd, &my_addr);
-    FD_SET(sockfd, &master);
-    
-    fdmax = sockfd;
-    while(1){
-        read_fds = master;
-        if(select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1){
-            perror("select");
-            exit(4);
-        }
-        
-        for (i = 0; i <= fdmax; i++){
-            if (FD_ISSET(i, &read_fds)){
-                if (i == sockfd)
-                    connection_accept(&master, &fdmax, sockfd, &client_addr);
-                else
-                    send_recv(i, &master, sockfd, fdmax);
-            }
-        }
-    }
-    return 0;
+	fd_set curr_fds, read_fds;
+	int sockfd, max_fd;
+	struct sockaddr_in server_addr, client_addr;
+
+	FD_ZERO(&curr_fds);
+	FD_ZERO(&read_fds);
+
+	init_socket(&sockfd);
+	bind_to_port(sockfd, &server_addr);
+	listen_to_clients(sockfd);
+
+	FD_SET(sockfd, &curr_fds);
+
+	max_fd = sockfd;
+
+	while(1)
+	{
+		read_fds = curr_fds;
+		if(select(max_fd + 1, &read_fds, NULL, NULL, NULL) < 0)
+		{
+			perror("Error in select");
+			exit(4);
+		}
+
+		int i;
+		for(i = 0; i <= max_fd; i++)
+		{
+			if(FD_ISSET(i, &read_fds))
+			{
+				if(i == sockfd)
+					accept_connection(&curr_fds, &max_fd, sockfd, &client_addr);
+				else
+					relay_message(i, &curr_fds, sockfd, max_fd);
+			}
+		}
+	}
+
+	return 0;
 }
