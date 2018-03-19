@@ -51,7 +51,7 @@ void connect_to_server(int sockfd, struct sockaddr_in *server_addr)
 
 
 
-send_recv_message(int i, int sockfd)
+void send_recv_message(int i, int sockfd)
 {
 	char send_buf[BUFFER_SIZE];
 	char recv_buf[BUFFER_SIZE];

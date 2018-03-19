@@ -134,30 +134,9 @@ void accept_connection(fd_set *curr_fds, int *max_fd, int sockfd, struct sockadd
 
 void send_message(int i, int j, int sockfd, int recv_size, char *recv_buf, fd_set *curr_fds, int max_fd)
 {
-	/*
-	char *arg;
-	char **args = malloc(BUFFER_SIZE);
-	char messageToParse[BUFFER_SIZE];
-	strcpy(messageToParse, recv_buf);
-
-	arg = strtok(messageToParse, " ");
-	int k = 0;
-	while(arg != NULL)
-	{
-		args[k++] = arg;
-		arg = strtok(NULL, " ");
-	}
-	args[k] = NULL;
-
-	int l = 0;
-	while(args[l] != NULL)
-		printf("%s\n", args[l++]);
-	*/
-
 	char messageToParse[BUFFER_SIZE];
 	strcpy(messageToParse, recv_buf);
 	messageToParse[recv_size] = '\0';
-	//printf("%s\n", messageToParse);
 	char *tokens[128];
 	int k = 0;
 	tokens[k] = strtok(messageToParse, " ");
@@ -172,8 +151,6 @@ void send_message(int i, int j, int sockfd, int recv_size, char *recv_buf, fd_se
 		l++;
 	}
 	strcpy(args[l], "");
-	//for(l = 0; strcmp(args[l], "") != 0; l++)
-	//	printf("%s\n", args[l]);
 
 	int new_word = 1;
 	int targets = 0;
@@ -201,8 +178,6 @@ void send_message(int i, int j, int sockfd, int recv_size, char *recv_buf, fd_se
 		message_start++;
 	}
 
-	//printf("%d, %d\n", targets, message_start);
-
 	if(!done)
 		return;
 
@@ -210,23 +185,12 @@ void send_message(int i, int j, int sockfd, int recv_size, char *recv_buf, fd_se
 	{
 		if(FD_ISSET(j, curr_fds) && j != sockfd && j != i)
 		{
-			/*
-			char message[BUFFER_SIZE] = "[";
-			strcat(message, usernames[i]);
-			strcat(message, " @Group]: ");
-			int header_size = sizeof(message);
-			strcat(message, recv_buf);
-			if(send(j, message, header_size + recv_size, 0) < 0)
-				perror("Unable to send message");
-			*/
 			char message[BUFFER_SIZE], messageToSend[BUFFER_SIZE];
 			strcpy(messageToSend, recv_buf);
 			messageToSend[recv_size] = '\0';
 			sprintf(message, "[%s @Group]: %s", usernames[i], messageToSend);
 			if(send(j, message, sizeof(message), 0) < 0)
 				perror("Unable to send message");
-			//if(send(j, recv_buf, recv_size, 0) < 0)
-			//	perror("Unable to send message");
 		}
 	}
 
@@ -239,23 +203,12 @@ void send_message(int i, int j, int sockfd, int recv_size, char *recv_buf, fd_se
 			{
 				if(FD_ISSET(j, curr_fds) && j != sockfd && j != i)
 				{
-					/*
-					char message[BUFFER_SIZE] = "[";
-					strcat(message, usernames[i]);
-					strcat(message, " @Group]: ");
-					int header_size = sizeof(message);
-					strcat(message, &recv_buf[message_start]);
-					if(send(j, message, header_size + recv_size - message_start, 0) < 0)
-						perror("Unable to send message");
-					*/
 					char message[BUFFER_SIZE], messageToSend[BUFFER_SIZE];
 					strcpy(messageToSend, recv_buf);
 					messageToSend[recv_size] = '\0';
 					sprintf(message, "[%s @Group]: %s", usernames[i], &messageToSend[message_start]);
 					if(send(j, message, sizeof(message), 0) < 0)
 						perror("Unable to send message");
-					//if(send(j, &recv_buf[message_start], recv_size - message_start, 0) < 0)
-					//	perror("Unable to send message");
 				}
 			}
 
@@ -263,48 +216,16 @@ void send_message(int i, int j, int sockfd, int recv_size, char *recv_buf, fd_se
 			{
 				if(FD_ISSET(j, curr_fds) && j != sockfd && j != i && strcmp(&args[m][1], usernames[j]) == 0)
 				{
-					/*
-					char message[BUFFER_SIZE] = "[";
-					strcat(message, usernames[i]);
-					strcat(message, "]: ");
-					int header_size = sizeof(message);
-					strcat(message, &recv_buf[message_start]);
-					if(send(j, message, header_size + recv_size - message_start, 0) < 0)
-						perror("Unable to send message");
-					*/
 					char message[BUFFER_SIZE], messageToSend[BUFFER_SIZE];
 					strcpy(messageToSend, recv_buf);
 					messageToSend[recv_size] = '\0';
 					sprintf(message, "[%s]: %s", usernames[i], &messageToSend[message_start]);
 					if(send(j, message, sizeof(message), 0) < 0)
 						perror("Unable to send message");
-					//if(send(j, &recv_buf[message_start], recv_size - message_start, 0) < 0)
-					//	perror("Unable to send message");
 				}
-
-				/*
-				if(!found)
-				{
-					char message[BUFFER_SIZE];
-					sprintf(message, "Could not send message to '%s', client does not exist", &args[m][1]);
-					if(send(i, message, 50 + sizeof(args[m]), 0) < 0)
-						perror("Unable to send message");
-				}
-				*/
 			}
 		}
 	}
-
-	/*
-	if(args[0][0] != '@' || strcmp(args[0], "@all") == 0)
-	{
-		if(FD_ISSET(j, curr_fds) && j != sockfd && j != i)
-		{
-			if(send(j, recv_buf, recv_size, 0) < 0)
-				perror("Unable to send message");
-		}
-	}
-	*/
 }
 
 
