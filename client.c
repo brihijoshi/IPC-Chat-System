@@ -1,86 +1,118 @@
+/*
+ * CSE231: Operating Systems
+ * Assignment 2: Multi-User Chat System
+ * Brihi Joshi (2016142)
+ * Taejas Gupta (2016204)
+ * March 18, 2018
+ *
+ * Client code.
+ */
+
+
+
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <sys/types.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <unistd.h>
 #include <errno.h>
 
-#define BUFSIZE 1024
+#define BUFFER_SIZE 1024
 
-void send_recv(int i, int sockfd)
+
+
+void init_socket(int *sockfd)
 {
-    char send_buf[BUFSIZE];
-    char recv_buf[BUFSIZE];
-    int nbyte_recvd;
-
-    if (i == 0){
-        fgets(send_buf, BUFSIZE, stdin);
-        if (strcmp(send_buf , "quit\n") == 0) {
-            exit(0);
-        }else
-            send(sockfd, send_buf, strlen(send_buf), 0);
-    }else {
-        nbyte_recvd = recv(sockfd, recv_buf, BUFSIZE, 0);
-        recv_buf[nbyte_recvd] = '\0';
-        printf("%s\n" , recv_buf);
-        fflush(stdout);
-    }
+	if((*sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+	{
+		perror("Unable to open socket");
+		exit(1);
+	}
 }
 
 
-void connect_request(int *sockfd, struct sockaddr_in *server_addr)
+
+void connect_to_server(int sockfd, struct sockaddr_in *server_addr)
 {
-    if ((*sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        perror("Socket");
-        exit(1);
-    }
-    server_addr->sin_family = AF_INET;
-    server_addr->sin_port = htons(4950);
-    server_addr->sin_addr.s_addr = inet_addr("127.0.0.1");
-    memset(server_addr->sin_zero, '\0', sizeof server_addr->sin_zero);
+	server_addr->sin_family = AF_INET;
+	server_addr->sin_port = (in_port_t) htons(1337);
+	server_addr->sin_addr.s_addr = inet_addr("127.0.0.1");
+	memset(server_addr->sin_zero, '\0', sizeof(server_addr->sin_zero));
 
-    if(connect(*sockfd, (struct sockaddr *)server_addr, sizeof(struct sockaddr)) == -1) {
-        perror("connect");
-        exit(1);
-    }
-
-    char name_prompt[25];
-    recv(*sockfd, name_prompt, 25, 0);
-    printf("%s\n",name_prompt);
-    char name[256];
-    fgets(name,256,stdin);
-    send(*sockfd,name,strlen(name),0);
+	if(connect(sockfd, (struct sockaddr *) server_addr, sizeof(struct sockaddr)) < 0)
+	{
+		perror("Unable to connect to server");
+		exit(1);
+	}
 }
+
+
+
+void send_recv_message(int i, int sockfd)
+{
+	char send_buf[BUFFER_SIZE];
+	char recv_buf[BUFFER_SIZE];
+
+	if(i == 0)
+	{
+		fgets(send_buf, BUFFER_SIZE, stdin);
+		if(strcmp(send_buf, "exit\n") == 0)
+		{
+			close(sockfd);
+			printf("Client has disconnected from the server.\n");
+			exit(0);
+		}
+		send(sockfd, send_buf, strlen(send_buf), 0);
+	}
+
+	else
+	{
+		int recv_size = recv(sockfd, recv_buf, BUFFER_SIZE, 0);
+		recv_buf[recv_size] = '\0';
+		printf("%s", recv_buf);
+
+		fflush(stdout);
+	}
+}
+
+
 
 int main()
 {
-    int sockfd, fdmax, i;
-    struct sockaddr_in server_addr;
-    fd_set master;
-    fd_set read_fds;
+	fd_set curr_fds, read_fds;
+	int sockfd, max_fd;
+	struct sockaddr_in server_addr;
 
-    connect_request(&sockfd, &server_addr);
-    FD_ZERO(&master);
-    FD_ZERO(&read_fds);
-    FD_SET(0, &master);
-    FD_SET(sockfd, &master);
-    fdmax = sockfd;
+	FD_ZERO(&curr_fds);
+	FD_ZERO(&read_fds);
 
-    while(1){
-        read_fds = master;
-        if(select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1){
-            perror("select");
-            exit(4);
-        }
+	init_socket(&sockfd);
+	connect_to_server(sockfd, &server_addr);
 
-        for(i=0; i <= fdmax; i++ )
-            if(FD_ISSET(i, &read_fds))
-                send_recv(i, sockfd);
-    }
-    printf("client-quited\n");
-    close(sockfd);
-    return 0;
+	FD_SET(0, &curr_fds);
+	FD_SET(sockfd, &curr_fds);
+
+	max_fd = sockfd;
+
+	while(1)
+	{
+		read_fds = curr_fds;
+		if(select(max_fd + 1, &read_fds, NULL, NULL, NULL) < 0)
+		{
+			perror("Error in select");
+			exit(4);
+		}
+
+		int i;
+		for(i = 0; i <= max_fd; i++)
+		{
+			if(FD_ISSET(i, &read_fds))
+				send_recv_message(i, sockfd);
+		}
+	}
+
+	return 0;
 }
