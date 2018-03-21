@@ -183,19 +183,23 @@ void send_message(int i, int j, int sockfd, int recv_size, char *recv_buf, fd_se
 
 	if(targets == 0)
 	{
-		if(FD_ISSET(j, curr_fds) && j != sockfd && j != i)
+		if(FD_ISSET(j, curr_fds) && j != sockfd && j == i)
 		{
-			char message[BUFFER_SIZE], messageToSend[BUFFER_SIZE];
-			strcpy(messageToSend, recv_buf);
-			messageToSend[recv_size] = '\0';
-			sprintf(message, "[%s @Group]: %s", usernames[i], messageToSend);
-			if(send(j, message, sizeof(message), 0) < 0)
+			// char message[BUFFER_SIZE], messageToSend[BUFFER_SIZE];
+			// strcpy(messageToSend, recv_buf);
+			// messageToSend[recv_size] = '\0';
+			// sprintf(message, "[%s @Group]: %s", usernames[i], messageToSend);
+			// if(send(j, message, sizeof(message), 0) < 0)
+			// 	perror("Unable to send message");
+			char *wrong_target = "Invalid Message\nUse @all to send everyone or @<name1> @<name2> to send to particular users\n";
+			if(send(j, wrong_target, strlen(wrong_target), 0) < 0)
 				perror("Unable to send message");
 		}
 	}
 
 	else
 	{
+		//int flag = 0;
 		int m;
 		for(m = 0; m < targets; m++)
 		{
@@ -209,6 +213,7 @@ void send_message(int i, int j, int sockfd, int recv_size, char *recv_buf, fd_se
 					sprintf(message, "[%s @Group]: %s", usernames[i], &messageToSend[message_start]);
 					if(send(j, message, sizeof(message), 0) < 0)
 						perror("Unable to send message");
+					//flag = 1;
 				}
 			}
 
@@ -222,6 +227,7 @@ void send_message(int i, int j, int sockfd, int recv_size, char *recv_buf, fd_se
 					sprintf(message, "[%s]: %s", usernames[i], &messageToSend[message_start]);
 					if(send(j, message, sizeof(message), 0) < 0)
 						perror("Unable to send message");
+					//flag = 1;
 				}
 			}
 		}
