@@ -1,0 +1,62 @@
+Multi-Party Chat System
+
+A. Model
+
+Our chat model functions in the following way - 
+1. When a client joins the chat system, they are asked to enter their username/name.
+2. If they send a message without specifying any target, the message is sent to all the currently connected clients.
+3. If any user wishes to send personal messages to a particular user or a set of users, then the sender can send the message like this - $@name1\ @name2\ ...\ <message>$
+
+
+B. Description
+
+We have used the socket IPC for establishing communication between the server and the several clients that can join in. We have 1024 clients which can currently join our chat system
+
+	a. Server
+		1. Firstly, the server begins by choosing a port (in our case, 1337) to which it binds itself. This port is used by all the clients when they want to connect to the server.
+
+		2. Then the server creates an empty list of file descriptor maintained in an object of type $fd-set$. The server then wait for the clients to join.
+
+		3. If a client requests connection with the server, the server accepts the connection and sets its file descriptor bit as 1 in $fd-set$.
+
+		4. After the client successfully connects, they are asked to enter a username, which is used by the server to uniquely tag their respective file descriptors.
+
+		5. While receiving the messages from the client, the server checks for the presence of an $@$ symbol. If present, it parses the name present after the $@$ symbol and send it to the user with the respective name. Again, the file descriptor of the user is accessed from their name.
+
+
+	b. Client
+		1. Firstly, the client searches if a host in the given port exists or not. If it does, it sends a connection request to the host.
+
+		2. The client can then continuously send messages which are relayed to other clients using the server. 
+
+		3. If a client types $exit$, they are removed from the system.
+
+
+C. Usage
+
+	a. Running the codes
+		Compile the codes by running a -
+		make
+
+		Then use this command to start the server -
+		./server
+
+		Use this commands to connect the clients to the server - 
+		./client
+
+	b. Sending and Receiving messages
+
+		In order to send a message to everybody, send messages like this -
+		@all Hello!
+
+		To send messages privately to one or a group of people, send messages like - 
+		@Brihi @Taejas Hi!
+
+D. Errors handled
+
+
+	a. Sanity checks for socket connections - We have handled errors while connection to the server is requested. These errors include connection errors, bind errors, errors in sending or receiving the messages, etc.
+
+	b. Empty name - Since we have correlated the names with respective file descriptors, it is important that if a user tries to enter an empty name, we restrict them to do so.
+	
+	c. No target audience specified  - In case the client tries to send a message not targeted to any audience, an error message is shown.
